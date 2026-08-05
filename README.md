@@ -4,6 +4,10 @@
 
 Move a writable AI coding mission between machines, teammates, Codex, and Claude Code with one portable `.amh` file.
 
+<p align="center">
+  <img src="docs/assets/amh-demo.gif" alt="AMH sender and receiver workflow demo" width="100%">
+</p>
+
 ```bash
 # Sender
 amh pack

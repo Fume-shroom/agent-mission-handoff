@@ -4,6 +4,10 @@
 
 通过一个便携的 `.amh` 文件，在不同机器、团队成员、Codex 与 Claude Code 之间迁移并继续执行 AI Coding Mission。
 
+<p align="center">
+  <img src="docs/assets/amh-demo.gif" alt="AMH 发送端与接收端工作流演示" width="100%">
+</p>
+
 ```bash
 # 发送端
 amh pack
