@@ -35,7 +35,7 @@ func TestApplyRestoresPortablePatch(t *testing.T) {
 	}
 	for path, want := range map[string]string{"tracked.txt": "after\n", "new.txt": "new\n"} {
 		body, err := os.ReadFile(filepath.Join(target, path))
-		if err != nil || string(body) != want {
+		if err != nil || normalizeNewlines(string(body)) != want {
 			t.Fatalf("%s = %q, %v", path, body, err)
 		}
 	}
@@ -76,7 +76,7 @@ func TestApplyRestoresStagedAndUnstagedState(t *testing.T) {
 		t.Fatalf("cached diff does not match source index:\n%s", cached)
 	}
 	body, err := os.ReadFile(filepath.Join(target, "tracked.txt"))
-	if err != nil || string(body) != "staged\nunstaged\n" {
+	if err != nil || normalizeNewlines(string(body)) != "staged\nunstaged\n" {
 		t.Fatalf("worktree content = %q, %v", body, err)
 	}
 }
@@ -112,7 +112,7 @@ func TestApplyRestoresIndexOnlyPatchWhenWorktreeMatchesHead(t *testing.T) {
 		t.Fatalf("status = %q, want staged change with worktree reverted to HEAD", status)
 	}
 	body, err := os.ReadFile(filepath.Join(target, "tracked.txt"))
-	if err != nil || string(body) != "before\n" {
+	if err != nil || normalizeNewlines(string(body)) != "before\n" {
 		t.Fatalf("worktree content = %q, %v", body, err)
 	}
 }
@@ -168,6 +168,10 @@ func gitText(t *testing.T, dir string, args ...string) string {
 		t.Fatalf("git %v: %v\n%s", args, err, body)
 	}
 	return string(body)
+}
+
+func normalizeNewlines(text string) string {
+	return strings.ReplaceAll(text, "\r\n", "\n")
 }
 
 func initRepo(t *testing.T, repo string) {

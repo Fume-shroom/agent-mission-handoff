@@ -614,7 +614,7 @@ func TestPackAndApplyRestoresDirtyWorktreeToIndependentClone(t *testing.T) {
 	}
 	for path, want := range map[string]string{"tracked.txt": "after\n", "new.txt": "new\n"} {
 		body, err := os.ReadFile(filepath.Join(target, path))
-		if err != nil || string(body) != want {
+		if err != nil || strings.ReplaceAll(string(body), "\r\n", "\n") != want {
 			t.Fatalf("%s = %q, %v", path, body, err)
 		}
 	}

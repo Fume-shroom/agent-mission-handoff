@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"testing"
 
@@ -83,7 +84,13 @@ func mustJSON(value any) []byte {
 func TestDiscoverCLIsAreAdvisory(t *testing.T) {
 	dir := t.TempDir()
 	goPath := filepath.Join(dir, "go")
-	if err := os.WriteFile(goPath, []byte("fake"), 0o700); err != nil {
+	body := []byte("#!/bin/sh\nexit 0\n")
+	if runtime.GOOS == "windows" {
+		goPath += ".bat"
+		body = []byte("@exit /b 0\r\n")
+		t.Setenv("PATHEXT", ".COM;.EXE;.BAT;.CMD")
+	}
+	if err := os.WriteFile(goPath, body, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", dir)
