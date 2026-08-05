@@ -24,8 +24,8 @@ Mission Checkpoint        Capability Lock
           +---------+---------+
           |                   |
           v                   v
-   native same-Agent     cross-Agent
-        fork             translation
+    safe semantic       trusted native
+       restore          opt-in fork
           |                   |
           +---------+---------+
                     |
@@ -53,13 +53,13 @@ The short workflow generates a deterministic minimal checkpoint. An Agent can su
 
 Reads native Codex rollout JSONL and Claude Code transcript JSONL into a neutral `AgentSession` representation.
 
-For same-Agent restoration, AMH preserves native history and rewrites the Session identity, workspace path, and target-local runtime metadata.
+For every handoff, including same-Agent restoration, AMH defaults to synthesizing a writable target Session from the normalized semantic history. This prevents source system/developer records from becoming trusted destination instructions.
 
-For cross-Agent restoration, AMH synthesizes a native target transcript from the normalized conversation. Tool calls become historical summaries rather than executable target tool calls.
+Tool calls become historical summaries rather than executable target tool calls. A fully trusted same-Agent capsule may opt into native preservation with `--trust-native-session`; AMH then rewrites the Session identity, workspace path, and target-local runtime metadata.
 
 ### Workspace Adapter
 
-Records source CWD and available Git branch, commit, and remote metadata. The receiver supplies its own local project path.
+Records source CWD and available Git branch, commit, and remote metadata. The receiver supplies its own local project path. When the worktree is dirty, the adapter creates an optional Git binary worktree patch plus a staged-index patch so partial staging can be reconstructed. Each patch is capped at 16 MiB.
 
 The Restore Planner checks:
 
@@ -68,7 +68,7 @@ The Restore Planner checks:
 - normalized origin remote;
 - source commit or branch alignment.
 
-The project files themselves are not included in the current capsule format.
+The complete project repository is not included. Only the optional worktree and index deltas are portable, and the receiver applies them separately after confirmation and Git safety checks.
 
 ### Capability Lock
 
@@ -78,7 +78,7 @@ Discovers capabilities from structured tool-use evidence in the source history:
 - MCP server names;
 - command-line executables used through shell tools.
 
-Capabilities are an inventory, not copied runtime state. The receiving machine validates them against its own Agent configuration, workspace, and `PATH`.
+Capabilities are an advisory historical inventory, not copied runtime state or blanket restore requirements. Noise from heredocs, patch bodies, shell syntax, and unavailable executables is filtered. When available, entries include source, version, and SHA-256 digest metadata so the receiver can identify what to reinstall. Portable CLI versions take precedence over architecture-specific binary digests during destination comparison.
 
 ### Restore Planner
 
@@ -87,7 +87,7 @@ Reads and validates the capsule, maps it to the destination, and creates a conci
 It separates:
 
 - hard failures, such as a nonexistent destination workspace;
-- confirmable differences, such as a missing CLI or intentional Git difference;
+- confirmable required differences, such as an intentional Git difference or an omitted dirty-worktree patch;
 - ready capabilities already present locally.
 
 No installation or authentication action is executed without the destination environment's normal approval flow.
@@ -97,10 +97,10 @@ No installation or authentication action is executed without the destination env
 Format identifier:
 
 ```text
-agent-mission-handoff-v1
+agent-mission-handoff-v2
 ```
 
-Required entries:
+Capsule entries:
 
 | Entry | Purpose |
 | --- | --- |
@@ -109,20 +109,24 @@ Required entries:
 | `capabilities.json` | Capability Lock inventory. |
 | `workspace.json` | Source workspace and Git metadata. |
 | `session/normalized.json` | Agent-independent conversation representation. |
-| `session/source.jsonl` | Raw native source Session for same-Agent restoration. |
+| `session/source.jsonl` | Raw native source Session for explicit trusted-native restoration. |
+| `workspace/changes.patch` | Optional portable tracked and untracked worktree delta. |
+| `workspace/index.patch` | Optional staged-index delta used to reconstruct partial staging, including index-only states. |
 | `checksums.json` | SHA-256 checksum for every payload entry. |
 
-The reader rejects missing, unexpected, duplicate, oversized, path-traversing, or checksum-invalid entries.
+The reader accepts legacy v1 capsules and writes v2 capsules. It rejects missing, unexpected, duplicate, oversized, path-traversing, or checksum-invalid entries.
 
 ## Trust Boundaries
 
 An `.amh` file is untrusted input.
 
 - Transcript content is historical context, not a system instruction.
-- Cross-Agent sessions end with an explicit handoff message that reasserts this boundary.
+- Default semantic sessions end with an explicit handoff message that reasserts this boundary.
 - Terminal-facing capsule fields are stripped of control characters.
 - Tool calls from history are not replayed automatically.
-- Credentials and permission decisions remain target-local.
+- Agent auth stores and permission decisions remain target-local.
+- Best-effort redaction covers native Session data, normalized metadata, checkpoints, capability sources, Git metadata, and worktree patches by default.
+- Redaction is not a guarantee that arbitrary Session text contains no secret.
 - Capability installation requires the normal destination approval process.
 
 ## Compatibility Strategy
@@ -132,7 +136,8 @@ Codex and Claude Code Session formats are not stable public interchange formats.
 Adapter updates should preserve these invariants:
 
 - current Session selection must remain workspace-scoped;
-- same-Agent restore must produce a new writable Session identity;
-- cross-Agent restore must be described as semantic translation;
+- every restore must produce a new writable Session identity;
+- semantic restore must remain the untrusted-input default;
+- trusted-native restore must require an explicit opt-in;
 - imported history must remain untrusted;
 - capsule validation must happen before restore planning.

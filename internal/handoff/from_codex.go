@@ -18,10 +18,11 @@ type codexLine struct {
 }
 
 // FromCodexRollout reads a Codex rollout JSONL file and extracts the neutral
-// AgentSession: the visible user/assistant conversation (from event_msg lines),
-// with tool calls summarized to short text turns (from response_item
-// function_call lines), plus project context from session_meta. Parsing is
-// defensive — unknown or malformed lines are skipped, never fatal.
+// AgentSession: visible user/assistant conversation from event_msg lines,
+// durable conversation from response_item lines, and bounded tool evidence.
+// Equivalent visible/durable message pairs are deduplicated while mixed-format
+// history remains in source order. Project context comes from session_meta.
+// Parsing is defensive — unknown or malformed lines are skipped, never fatal.
 func FromCodexRollout(path string) (AgentSession, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -38,10 +39,11 @@ func FromCodexBytes(b []byte) (AgentSession, error) {
 }
 
 func fromCodexReader(r io.Reader) (AgentSession, error) {
-	s := AgentSession{Format: IRFormat, SourceAgent: "codex"}
+	session := AgentSession{Format: IRFormat, SourceAgent: "codex"}
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
-	sawAssistantEvent := false
+	toolNames := map[string]string{}
+	var prose codexProseDeduper
 	for sc.Scan() {
 		line := strings.TrimSpace(sc.Text())
 		if line == "" {
@@ -56,23 +58,41 @@ func fromCodexReader(r io.Reader) (AgentSession, error) {
 			// Forked/imported rollouts can contain historical session_meta records.
 			// The first one identifies the rollout being read; later records belong
 			// to carried history and must not replace the primary identity.
-			if s.ThreadID == "" {
-				applyCodexMeta(&s, cl)
+			if session.ThreadID == "" {
+				applyCodexMeta(&session, cl)
 			}
 		case "event_msg":
-			sawAssistantEvent = consumeCodexEvent(&s, cl.Payload) || sawAssistantEvent
+			consumeCodexEvent(&session, cl.Payload, &prose)
 		case "response_item":
-			consumeCodexResponseItem(&s, cl.Payload)
+			consumeCodexResponseItem(&session, cl.Payload, toolNames, &prose)
 		}
 	}
 	if err := sc.Err(); err != nil {
-		return s, err
+		return session, err
 	}
-	// Fallback: if the rollout had no agent_message events at all (older/newer
-	// shape), recover assistant prose from response_item message output_text. We
-	// only do this when nothing was captured, to avoid duplicating turns.
-	_ = sawAssistantEvent
-	return s, nil
+	return session, nil
+}
+
+type codexProseDeduper struct {
+	source    string
+	role      Role
+	text      string
+	turnIndex int
+}
+
+func (d *codexProseDeduper) add(s *AgentSession, source string, role Role, text string) {
+	text = clip(text, maxTurnText)
+	if text == "" {
+		return
+	}
+	if d.source != "" && d.source != source && d.role == role && d.text == text && d.turnIndex == len(s.Conversation)-1 {
+		return
+	}
+	s.Conversation = append(s.Conversation, Turn{Role: role, Text: text})
+	d.source = source
+	d.role = role
+	d.text = text
+	d.turnIndex = len(s.Conversation) - 1
 }
 
 func applyCodexMeta(s *AgentSession, cl codexLine) {
@@ -101,52 +121,96 @@ func applyCodexMeta(s *AgentSession, cl codexLine) {
 	}
 }
 
-// consumeCodexEvent handles event_msg payloads. It returns true if it captured an
-// assistant (agent_message) turn.
-func consumeCodexEvent(s *AgentSession, payload json.RawMessage) bool {
+// consumeCodexEvent handles visible event_msg payloads used by older rollouts.
+func consumeCodexEvent(s *AgentSession, payload json.RawMessage, prose *codexProseDeduper) {
 	var p struct {
 		Type    string `json:"type"`
 		Message string `json:"message"`
 	}
 	if json.Unmarshal(payload, &p) != nil {
-		return false
+		return
 	}
 	switch p.Type {
 	case "user_message":
-		s.addTurn(RoleUser, "", stripMarker(p.Message))
+		prose.add(s, "event", RoleUser, stripMarker(p.Message))
 	case "agent_message":
-		s.addTurn(RoleAssistant, "", p.Message)
-		return true
+		prose.add(s, "event", RoleAssistant, p.Message)
 	}
-	return false
 }
 
-// consumeCodexResponseItem summarizes a tool call into a text turn. Only the call
-// (name + brief arguments) is carried; raw outputs are intentionally dropped to
-// keep the translated session concise.
-func consumeCodexResponseItem(s *AgentSession, payload json.RawMessage) {
+// consumeCodexResponseItem carries bounded tool calls and results as historical
+// text. They are never replayed as executable calls in the destination Agent.
+func consumeCodexResponseItem(s *AgentSession, payload json.RawMessage, toolNames map[string]string, prose *codexProseDeduper) {
 	var p struct {
-		Type      string `json:"type"`
-		Name      string `json:"name"`
-		Arguments string `json:"arguments"`
+		Type      string          `json:"type"`
+		Name      string          `json:"name"`
+		Arguments string          `json:"arguments"`
+		CallID    string          `json:"call_id"`
+		Output    string          `json:"output"`
+		Role      string          `json:"role"`
+		Content   json.RawMessage `json:"content"`
 	}
 	if json.Unmarshal(payload, &p) != nil {
 		return
 	}
 	switch p.Type {
+	case "message":
+		if p.Role != string(RoleUser) && p.Role != string(RoleAssistant) {
+			return
+		}
+		text := codexMessageText(p.Content)
+		if p.Role == string(RoleUser) {
+			text = stripMarker(text)
+		}
+		prose.add(s, "response", Role(p.Role), text)
 	case "function_call":
 		name := p.Name
 		if name == "" {
 			name = "tool"
+		}
+		if p.CallID != "" {
+			toolNames[p.CallID] = name
 		}
 		text := "ran " + name
 		if args := briefArgs(p.Arguments); args != "" {
 			text += ": " + args
 		}
 		s.addTurn(RoleTool, name, text)
+	case "function_call_output":
+		name := toolNames[p.CallID]
+		if name == "" {
+			name = "tool"
+		}
+		if output := strings.TrimSpace(p.Output); output != "" {
+			s.addTurn(RoleTool, name, "result from "+name+": "+clip(output, 2000))
+		}
 	case "web_search_call":
 		s.addTurn(RoleTool, "web_search", "performed a web search")
 	}
+}
+
+func codexMessageText(raw json.RawMessage) string {
+	var plain string
+	if json.Unmarshal(raw, &plain) == nil {
+		return strings.TrimSpace(plain)
+	}
+	var blocks []struct {
+		Type string `json:"type"`
+		Text string `json:"text"`
+	}
+	if json.Unmarshal(raw, &blocks) != nil {
+		return ""
+	}
+	var parts []string
+	for _, block := range blocks {
+		switch block.Type {
+		case "input_text", "output_text", "text":
+			if text := strings.TrimSpace(block.Text); text != "" {
+				parts = append(parts, text)
+			}
+		}
+	}
+	return strings.Join(parts, "\n")
 }
 
 // briefArgs extracts a short, human-readable snippet from a tool-call arguments

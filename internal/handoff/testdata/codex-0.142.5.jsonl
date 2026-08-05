@@ -1,0 +1,8 @@
+{"timestamp":"2026-08-05T17:23:29.895Z","type":"session_meta","payload":{"id":"11111111-1111-4111-8111-111111111111","session_id":"11111111-1111-4111-8111-111111111111","timestamp":"2026-08-05T17:23:29.895Z","cwd":"/work/source","originator":"codex_cli_rs","cli_version":"0.142.5","source":"cli","model_provider":"openai","base_instructions":{"text":"sanitized fixture"},"git":{"branch":"main","commit_hash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","origin_url":"https://github.com/example/repo.git"}}}
+{"timestamp":"2026-08-05T17:23:30.000Z","type":"world_state","payload":{"full":true,"state":{"environments":{"filesystem":"<workspace_roots><root>/work/source</root></workspace_roots>"}}}}
+{"timestamp":"2026-08-05T17:23:31.000Z","type":"turn_context","payload":{"turn_id":"turn-1","cwd":"/work/source","workspace_roots":["/work/source"],"approval_policy":"never","sandbox_policy":{"type":"workspace-write"}}}
+{"timestamp":"2026-08-05T17:23:32.000Z","type":"event_msg","payload":{"type":"user_message","message":"Fix the timeout regression."}}
+{"timestamp":"2026-08-05T17:23:32.000Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Fix the timeout regression."}]}}
+{"timestamp":"2026-08-05T17:23:33.000Z","type":"response_item","payload":{"type":"function_call","name":"exec_command","arguments":"{\"cmd\":\"go test ./...\"}","call_id":"call-1"}}
+{"timestamp":"2026-08-05T17:23:34.000Z","type":"event_msg","payload":{"type":"agent_message","message":"The regression is reproduced."}}
+{"timestamp":"2026-08-05T17:23:34.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"The regression is reproduced."}]}}

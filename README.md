@@ -45,6 +45,12 @@ irm https://raw.githubusercontent.com/Fume-shroom/agent-mission-handoff/main/ins
 
 No Go toolchain or source checkout is required. The installer verifies the release checksum and installs the CLI plus the Mission Handoff Skill for Codex and Claude Code.
 
+Verify the installation with:
+
+```bash
+amh doctor
+```
+
 You can also tell a local coding Agent:
 
 > Install AMH from https://github.com/Fume-shroom/agent-mission-handoff and verify the installation.
@@ -59,6 +65,10 @@ Every AMH operation supports a conversation with a capable local coding Agent or
 | Package | “Package the current task as an AMH file.” | `amh pack` |
 | Inspect | “Inspect this handoff and summarize what it contains.” | `amh inspect mission.amh` |
 | Restore | Attach the file and say: “Continue this task.” | `amh continue mission.amh` |
+| Apply source changes | “Apply the source worktree changes from this handoff.” | `amh apply mission.amh` |
+| Verify | “Check whether AMH is ready.” | `amh doctor` |
+| Update | “Update AMH and verify it.” | `amh update` |
+| Remove | “Uninstall AMH.” | `amh uninstall` |
 
 The Agent route still uses the local `amh` CLI internally. It does not require a cloud AMH service.
 
@@ -70,11 +80,12 @@ The Agent route still uses the local `amh` CLI internally. It does not require a
 - restored history counts and recent conversation context;
 - completed work, unresolved questions, and suggested next actions;
 - missing Skills, MCP servers, CLIs, or workspace requirements;
+- whether portable source workspace changes and staged state are available;
 - the native resume command.
 
-When a coding Agent receives the file, it additionally reads the complete portable transcript and responds first with a higher-quality Mission Brief. It then asks whether to continue. It must not run mission tools or modify project files until the user confirms.
+When a coding Agent receives the file, it opens the restored Session. The restored Agent reads the portable transcript, responds first with a higher-quality Mission Brief, and asks whether to continue. It must not run mission tools, apply source changes, or modify project files until the user confirms.
 
-The complete history remains available in the restored writable Session. The brief summarizes it instead of dumping the entire transcript into the chat.
+The portable history remains available in the restored writable Session. The brief summarizes it instead of dumping the entire transcript into the chat.
 
 ## What Travels
 
@@ -82,22 +93,34 @@ One `.amh` capsule contains:
 
 - Mission Checkpoint: objective, progress, completed work, risks, and next actions;
 - portable conversation history and the native source Session;
-- workspace and Git identity;
-- observed Skills, MCP servers, and CLI tools;
+- workspace and Git identity, plus optional checked patches for uncommitted tracked/untracked files and staged state;
+- observed Skills, MCP servers, and CLI tools with available source, version, and digest metadata;
 - checksums and archive safety metadata.
 
-AMH does **not** transfer credentials, permission grants, login state, running processes, private model state, or the project repository.
+AMH does not intentionally copy Agent auth stores, login state, permission grants, running processes, private model state, or the complete project repository. Session text, command history, checkpoints, patches, and Git metadata can still contain sensitive values. AMH applies best-effort high-confidence redaction by default, but this is not proof that a capsule is secret-free. Review it and transfer it through an approved secure channel.
+
+Source workspace changes are never applied automatically. The receiver Agent reports them and waits for confirmation before running `amh apply`.
+If AMH redacts added patch content, the Mission Brief reports the replacement count so the receiver can review `[REDACTED]` placeholders before testing or committing.
+If file content is portable but the exact staged state is not, the Mission Brief calls that out explicitly instead of claiming a complete workspace restore.
+
+## Maintain
+
+```bash
+amh doctor      # verify CLI, Agents, Skills, and Session roots
+amh update      # install the latest verified release in place
+amh uninstall   # remove the CLI and both Mission Handoff Skills
+```
 
 ## Supported Handoffs
 
 | Source | Destination | Restore mode |
 | --- | --- | --- |
-| Codex | Codex | Native writable fork |
-| Claude Code | Claude Code | Native writable fork |
+| Codex | Codex | Safe writable semantic restore by default |
+| Claude Code | Claude Code | Safe writable semantic restore by default |
 | Codex | Claude Code | Semantic session translation |
 | Claude Code | Codex | Semantic session translation |
 
-Cross-Agent restore preserves useful conversation and mission context. It does not claim byte-exact reproduction of private runtime state or tool-call internals.
+Semantic restore preserves useful conversation and mission context without importing source system/developer records as trusted target instructions. For a capsule you fully trust, `--trust-native-session` enables a same-Agent native fork. AMH does not claim byte-exact reproduction of private runtime state or tool-call internals.
 
 ## Documentation
 

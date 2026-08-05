@@ -42,6 +42,7 @@ func fromClaudeReader(r io.Reader) (AgentSession, error) {
 	s := AgentSession{Format: IRFormat, SourceAgent: "claude"}
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
+	toolNames := map[string]string{}
 	for sc.Scan() {
 		line := strings.TrimSpace(sc.Text())
 		if line == "" {
@@ -65,52 +66,90 @@ func fromClaudeReader(r io.Reader) (AgentSession, error) {
 		}
 		switch cl.Type {
 		case "user":
-			s.addTurn(RoleUser, "", claudeUserText(cl.Message))
+			consumeClaudeUser(&s, cl.Message, toolNames)
 		case "assistant":
-			consumeClaudeAssistant(&s, cl.Message)
+			consumeClaudeAssistant(&s, cl.Message, toolNames)
 		}
 	}
 	return s, sc.Err()
 }
 
-// claudeUserText extracts text from a user message, whose content is a plain
-// string or an array of content blocks. tool_result blocks (the user "turn" that
-// carries a tool's output) are ignored — the tool call itself was already
-// summarized on the assistant side.
-func claudeUserText(raw json.RawMessage) string {
+// consumeClaudeUser keeps user prose and bounded tool_result evidence. Results
+// are historical text only and are not replayed as target Agent tool output.
+func consumeClaudeUser(s *AgentSession, raw json.RawMessage, toolNames map[string]string) {
 	if len(raw) == 0 {
-		return ""
+		return
 	}
 	var msg struct {
 		Content json.RawMessage `json:"content"`
 	}
 	if json.Unmarshal(raw, &msg) != nil {
-		return ""
+		return
 	}
-	var s string
-	if json.Unmarshal(msg.Content, &s) == nil {
-		return strings.TrimSpace(s)
+	var text string
+	if json.Unmarshal(msg.Content, &text) == nil {
+		s.addTurn(RoleUser, "", strings.TrimSpace(text))
+		return
+	}
+	var blocks []struct {
+		Type      string          `json:"type"`
+		Text      string          `json:"text"`
+		ToolUseID string          `json:"tool_use_id"`
+		Content   json.RawMessage `json:"content"`
+	}
+	if json.Unmarshal(msg.Content, &blocks) == nil {
+		var parts []string
+		for _, b := range blocks {
+			switch b.Type {
+			case "text":
+				if strings.TrimSpace(b.Text) != "" {
+					parts = append(parts, strings.TrimSpace(b.Text))
+				}
+			case "tool_result":
+				if len(parts) > 0 {
+					s.addTurn(RoleUser, "", strings.Join(parts, "\n"))
+					parts = nil
+				}
+				name := toolNames[b.ToolUseID]
+				if name == "" {
+					name = "tool"
+				}
+				if result := claudeToolResultText(b.Content); result != "" {
+					s.addTurn(RoleTool, name, "result from "+name+": "+clip(result, 2000))
+				}
+			}
+		}
+		if len(parts) > 0 {
+			s.addTurn(RoleUser, "", strings.Join(parts, "\n"))
+		}
+	}
+}
+
+func claudeToolResultText(raw json.RawMessage) string {
+	var text string
+	if json.Unmarshal(raw, &text) == nil {
+		return strings.TrimSpace(text)
 	}
 	var blocks []struct {
 		Type string `json:"type"`
 		Text string `json:"text"`
 	}
-	if json.Unmarshal(msg.Content, &blocks) == nil {
-		var parts []string
-		for _, b := range blocks {
-			if b.Type == "text" && strings.TrimSpace(b.Text) != "" {
-				parts = append(parts, strings.TrimSpace(b.Text))
-			}
-		}
-		return strings.Join(parts, "\n")
+	if json.Unmarshal(raw, &blocks) != nil {
+		return ""
 	}
-	return ""
+	var parts []string
+	for _, block := range blocks {
+		if block.Type == "text" && strings.TrimSpace(block.Text) != "" {
+			parts = append(parts, strings.TrimSpace(block.Text))
+		}
+	}
+	return strings.Join(parts, "\n")
 }
 
 // consumeClaudeAssistant turns an assistant message into one prose turn (joined
 // text blocks) plus a tool turn for each tool_use block. "thinking" blocks are
 // internal and dropped.
-func consumeClaudeAssistant(s *AgentSession, raw json.RawMessage) {
+func consumeClaudeAssistant(s *AgentSession, raw json.RawMessage, toolNames map[string]string) {
 	if len(raw) == 0 {
 		return
 	}
@@ -130,6 +169,7 @@ func consumeClaudeAssistant(s *AgentSession, raw json.RawMessage) {
 		Type  string          `json:"type"`
 		Text  string          `json:"text"`
 		Name  string          `json:"name"`
+		ID    string          `json:"id"`
 		Input json.RawMessage `json:"input"`
 	}
 	if json.Unmarshal(msg.Content, &blocks) != nil {
@@ -146,6 +186,9 @@ func consumeClaudeAssistant(s *AgentSession, raw json.RawMessage) {
 			name := b.Name
 			if name == "" {
 				name = "tool"
+			}
+			if b.ID != "" {
+				toolNames[b.ID] = name
 			}
 			text := "ran " + name
 			if brief := briefClaudeInput(b.Input); brief != "" {

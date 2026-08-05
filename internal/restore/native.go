@@ -6,16 +6,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 )
 
 // NativeFork preserves an agent's complete native history while assigning a new
 // session id, remapping cwd, and appending the Mission Handoff context.
-func NativeFork(agent string, raw []byte, newID, cwd, context, targetModelProvider string) ([]byte, error) {
+func NativeFork(agent string, raw []byte, newID, sourceCWD, cwd, context, targetModelProvider string) ([]byte, error) {
 	switch agent {
 	case "codex":
-		return nativeCodex(raw, newID, cwd, context, targetModelProvider)
+		return nativeCodex(raw, newID, sourceCWD, cwd, context, targetModelProvider)
 	case "claude":
 		return nativeClaude(raw, newID, cwd, context)
 	default:
@@ -23,16 +24,18 @@ func NativeFork(agent string, raw []byte, newID, cwd, context, targetModelProvid
 	}
 }
 
-func nativeCodex(raw []byte, newID, cwd, context, targetModelProvider string) ([]byte, error) {
+func nativeCodex(raw []byte, newID, sourceCWD, cwd, context, targetModelProvider string) ([]byte, error) {
 	var out bytes.Buffer
+	sourcePaths := codexWorkspacePaths(raw, sourceCWD)
 	sc := bufio.NewScanner(bytes.NewReader(raw))
 	sc.Buffer(make([]byte, 0, 64*1024), 64*1024*1024)
 	primaryID := ""
 	for sc.Scan() {
 		line := append([]byte(nil), sc.Bytes()...)
 		var wrapper map[string]any
-		if json.Unmarshal(line, &wrapper) == nil && wrapper["type"] == "session_meta" {
-			if payload, ok := wrapper["payload"].(map[string]any); ok {
+		if json.Unmarshal(line, &wrapper) == nil {
+			typeName, _ := wrapper["type"].(string)
+			if payload, ok := wrapper["payload"].(map[string]any); ok && typeName == "session_meta" {
 				id, _ := payload["id"].(string)
 				if primaryID == "" && id != "" {
 					primaryID = id
@@ -51,6 +54,15 @@ func nativeCodex(raw []byte, newID, cwd, context, targetModelProvider string) ([
 					line, _ = json.Marshal(wrapper)
 				}
 			}
+			if payload, ok := wrapper["payload"].(map[string]any); ok && typeName == "turn_context" {
+				payload["cwd"] = cwd
+				payload["workspace_roots"] = []string{cwd}
+				line, _ = json.Marshal(wrapper)
+			}
+			if typeName == "world_state" && sourceCWD != "" && cwd != "" {
+				wrapper["payload"] = remapPaths(wrapper["payload"], sourcePaths, cwd)
+				line, _ = json.Marshal(wrapper)
+			}
 		}
 		out.Write(line)
 		out.WriteByte('\n')
@@ -65,6 +77,77 @@ func nativeCodex(raw []byte, newID, cwd, context, targetModelProvider string) ([
 	appendJSONLine(&out, map[string]any{"timestamp": ts, "type": "event_msg", "payload": map[string]any{"type": "user_message", "message": context}})
 	appendJSONLine(&out, map[string]any{"timestamp": ts, "type": "response_item", "payload": map[string]any{"type": "message", "role": "user", "content": []map[string]any{{"type": "input_text", "text": context}}}})
 	return out.Bytes(), nil
+}
+
+func remapPaths(value any, sourcePaths []string, targetCWD string) any {
+	switch current := value.(type) {
+	case map[string]any:
+		for key, child := range current {
+			current[key] = remapPaths(child, sourcePaths, targetCWD)
+		}
+		return current
+	case []any:
+		for i, child := range current {
+			current[i] = remapPaths(child, sourcePaths, targetCWD)
+		}
+		return current
+	case string:
+		for _, source := range sourcePaths {
+			if source != "" && strings.Contains(current, source) {
+				current = strings.ReplaceAll(current, source, targetCWD)
+			}
+		}
+		return current
+	}
+	return value
+}
+
+func codexWorkspacePaths(raw []byte, sourceCWD string) []string {
+	seen := map[string]bool{}
+	add := func(path string) {
+		path = strings.TrimSpace(path)
+		if path != "" {
+			seen[path] = true
+		}
+	}
+	add(sourceCWD)
+	sc := bufio.NewScanner(bytes.NewReader(raw))
+	sc.Buffer(make([]byte, 0, 64*1024), 64*1024*1024)
+	primaryID := ""
+	for sc.Scan() {
+		var wrapper map[string]any
+		if json.Unmarshal(sc.Bytes(), &wrapper) != nil {
+			continue
+		}
+		typeName, _ := wrapper["type"].(string)
+		payload, _ := wrapper["payload"].(map[string]any)
+		if typeName == "session_meta" {
+			id, _ := payload["id"].(string)
+			if primaryID == "" {
+				primaryID = id
+			}
+			if id == primaryID {
+				cwd, _ := payload["cwd"].(string)
+				add(cwd)
+			}
+		}
+		if typeName == "turn_context" {
+			cwd, _ := payload["cwd"].(string)
+			add(cwd)
+			if roots, ok := payload["workspace_roots"].([]any); ok {
+				for _, root := range roots {
+					path, _ := root.(string)
+					add(path)
+				}
+			}
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for path := range seen {
+		out = append(out, path)
+	}
+	sort.Slice(out, func(i, j int) bool { return len(out[i]) > len(out[j]) })
+	return out
 }
 
 func nativeClaude(raw []byte, newID, cwd, context string) ([]byte, error) {

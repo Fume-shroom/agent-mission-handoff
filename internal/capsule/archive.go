@@ -27,6 +27,8 @@ var allowedEntries = map[string]bool{
 	"workspace.json":          true,
 	"session/normalized.json": true,
 	"session/source.jsonl":    true,
+	"workspace/changes.patch": true,
+	"workspace/index.patch":   true,
 	"checksums.json":          true,
 }
 
@@ -54,6 +56,12 @@ func Write(path string, data Data) error {
 		return err
 	}
 	entries["session/source.jsonl"] = data.RawSession
+	if len(data.WorktreePatch) > 0 {
+		entries["workspace/changes.patch"] = data.WorktreePatch
+	}
+	if len(data.IndexPatch) > 0 {
+		entries["workspace/index.patch"] = data.IndexPatch
+	}
 
 	checksums := map[string]string{}
 	for name, body := range entries {
@@ -62,6 +70,9 @@ func Write(path string, data Data) error {
 	}
 	entries["checksums.json"], err = marshal(checksums)
 	if err != nil {
+		return err
+	}
+	if err := validateEntrySizes(entries, maxEntrySize, maxTotalSize); err != nil {
 		return err
 	}
 
@@ -106,6 +117,20 @@ func Write(path string, data Data) error {
 		return err
 	}
 	ok = true
+	return nil
+}
+
+func validateEntrySizes(entries map[string][]byte, entryLimit, totalLimit int) error {
+	total := 0
+	for name, body := range entries {
+		if len(body) > entryLimit {
+			return fmt.Errorf("capsule entry %q exceeds limit", name)
+		}
+		total += len(body)
+		if total > totalLimit {
+			return errors.New("capsule exceeds total uncompressed size limit")
+		}
+	}
 	return nil
 }
 
@@ -154,9 +179,23 @@ func Read(path string) (Data, error) {
 		return Data{}, fmt.Errorf("checksums: %w", err)
 	}
 	for _, name := range []string{"manifest.json", "mission.json", "capabilities.json", "workspace.json", "session/normalized.json", "session/source.jsonl"} {
+		if _, ok := entries[name]; !ok {
+			return Data{}, fmt.Errorf("missing capsule entry %q", name)
+		}
 		if _, ok := checksums[name]; !ok {
 			return Data{}, fmt.Errorf("missing checksum for %q", name)
 		}
+	}
+	for name := range entries {
+		if name == "checksums.json" {
+			continue
+		}
+		if _, ok := checksums[name]; !ok {
+			return Data{}, fmt.Errorf("missing checksum for %q", name)
+		}
+	}
+	if _, ok := checksums["checksums.json"]; ok {
+		return Data{}, errors.New("checksums.json must not checksum itself")
 	}
 	for name, want := range checksums {
 		body, ok := entries[name]
@@ -173,7 +212,7 @@ func Read(path string) (Data, error) {
 	if err := decode(entries, "manifest.json", &data.Manifest); err != nil {
 		return Data{}, err
 	}
-	if data.Manifest.Format != Format {
+	if data.Manifest.Format != Format && data.Manifest.Format != LegacyFormat {
 		return Data{}, fmt.Errorf("unsupported capsule format %q", data.Manifest.Format)
 	}
 	if err := decode(entries, "mission.json", &data.Mission); err != nil {
@@ -189,6 +228,8 @@ func Read(path string) (Data, error) {
 		return Data{}, err
 	}
 	data.RawSession = entries["session/source.jsonl"]
+	data.WorktreePatch = entries["workspace/changes.patch"]
+	data.IndexPatch = entries["workspace/index.patch"]
 	return data, nil
 }
 

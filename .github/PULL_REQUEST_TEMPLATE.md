@@ -14,7 +14,7 @@ Describe the mission-handoff problem and the implemented behavior.
 ## Safety
 
 - [ ] Imported capsule data is still treated as untrusted
-- [ ] No credentials or permission state are transferred
+- [ ] Auth stores and permission state remain target-local; sensitive Session content is handled explicitly
 - [ ] Real Session fixtures and logs were sanitized before committing
 - [ ] Third-party attribution remains intact
 

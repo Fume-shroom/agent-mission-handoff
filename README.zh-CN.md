@@ -45,6 +45,12 @@ irm https://raw.githubusercontent.com/Fume-shroom/agent-mission-handoff/main/ins
 
 用户不需要安装 Go，也不需要下载源码。安装器会验证 Release 校验和，并同时安装 CLI、Codex Skill 和 Claude Code Skill。
 
+安装后可直接验证：
+
+```bash
+amh doctor
+```
+
 你也可以直接告诉本地 Coding Agent：
 
 > 从 https://github.com/Fume-shroom/agent-mission-handoff 安装 AMH，并验证安装结果。
@@ -59,6 +65,10 @@ AMH 的每个操作都支持交给具备本地操作能力的 Coding Agent 完�
 | 打包 | “把当前任务交接成一个 AMH 文件。” | `amh pack` |
 | 查看 | “查看这个交接文件，并总结它包含的内容。” | `amh inspect mission.amh` |
 | 恢复 | 把文件交给 Agent，然后说：“继续这个任务。” | `amh continue mission.amh` |
+| 应用源端改动 | “应用这个交接文件里的源工作区改动。” | `amh apply mission.amh` |
+| 验证 | “检查 AMH 是否已就绪。” | `amh doctor` |
+| 更新 | “更新 AMH 并验证。” | `amh update` |
+| 卸载 | “卸载 AMH。” | `amh uninstall` |
 
 Agent 对话模式内部仍然调用本地 `amh` CLI，不依赖 AMH 云服务。
 
@@ -70,11 +80,12 @@ Agent 对话模式内部仍然调用本地 `amh` CLI，不依赖 AMH 云服务�
 - 已恢复的历史 turn 数和最近的对话上下文；
 - 已完成工作、未解决问题和建议的下一步；
 - 缺失的 Skills、MCP、CLI 或工作区条件；
+- 是否包含可迁移的源工作区改动和 staged 状态；
 - 原生 Session 恢复命令。
 
-当接收方是 Coding Agent 时，它还会读取完整的可迁移 transcript，并在第一次回复中输出质量更高的 Mission Brief，然后主动询问是否继续。在用户确认之前，它不能运行任务工具或修改项目文件。
+当接收方是 Coding Agent 时，它会打开恢复后的 Session。恢复后的 Agent 会读取可迁移 transcript，在第一次回复中输出质量更高的 Mission Brief，然后主动询问是否继续。在用户确认之前，它不能运行任务工具、应用源端改动或修改项目文件。
 
-完整历史仍保留在恢复后的可写 Session 中。默认只输出摘要和关键上下文，不会把整段 transcript 全量倾倒到聊天界面。
+可迁移历史仍保留在恢复后的可写 Session 中。默认只输出摘要和关键上下文，不会把整段 transcript 全量倾倒到聊天界面。
 
 ## 文件包含什么
 
@@ -82,22 +93,34 @@ Agent 对话模式内部仍然调用本地 `amh` CLI，不依赖 AMH 云服务�
 
 - Mission Checkpoint：目标、进度、已完成工作、风险和下一步；
 - 可迁移对话历史与原始 Agent Session；
-- 工作区与 Git 身份信息；
-- 实际使用过的 Skills、MCP 和 CLI；
+- 工作区与 Git 身份信息，以及可选的 tracked/untracked 未提交改动补丁和 staged 状态；
+- 实际使用过的 Skills、MCP 和 CLI，以及可获得的来源、版本和摘要信息；
 - 校验和与压缩包安全元数据。
 
-AMH **不会**传输凭证、权限授权、登录状态、运行中的进程、模型私有状态或项目代码仓库。
+AMH 不会主动复制 Agent 的认证存储、登录状态、权限授权、运行中的进程、模型私有状态或完整项目仓库。但会话文本、命令历史、Checkpoint、补丁和 Git 元数据仍可能包含敏感值。AMH 默认执行尽力而为的高置信度脱敏，但这不代表文件一定不含秘密；发送前仍应检查，并通过获批的安全渠道传输。
+
+源工作区改动不会自动应用。接收方 Agent 会先报告这些改动，在用户确认后才运行 `amh apply`。
+如果 AMH 对新增补丁内容进行了脱敏，Mission Brief 会报告替换数量，接收方应在测试或提交前检查 `[REDACTED]` 占位符。
+如果文件内容可以迁移、但精确的 staged 状态无法保留，Mission Brief 会明确说明，不会把它描述为完整工作区恢复。
+
+## 维护
+
+```bash
+amh doctor      # 检查 CLI、Agent、Skill 和 Session 目录
+amh update      # 原地安装最新的已校验 Release
+amh uninstall   # 删除 CLI 和两个 Mission Handoff Skill
+```
 
 ## 支持的迁移方向
 
 | 发送端 | 接收端 | 恢复方式 |
 | --- | --- | --- |
-| Codex | Codex | 原生可写 Fork |
-| Claude Code | Claude Code | 原生可写 Fork |
+| Codex | Codex | 默认安全语义恢复为可写 Session |
+| Claude Code | Claude Code | 默认安全语义恢复为可写 Session |
 | Codex | Claude Code | 语义会话转换 |
 | Claude Code | Codex | 语义会话转换 |
 
-跨 Agent 恢复会保留有价值的对话和任务上下文，但不会声称逐字节复刻私有运行状态或工具调用内部信息。
+语义恢复会保留有价值的对话和任务上下文，同时不会把来源 Session 的 system/developer 记录当作目标 Agent 的可信指令。对于完全可信的 Capsule，可通过 `--trust-native-session` 显式启用同 Agent 原生 Fork。AMH 不会声称逐字节复刻私有运行状态或工具调用内部信息。
 
 ## 文档
 

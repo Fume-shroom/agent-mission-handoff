@@ -9,6 +9,8 @@ Every operation can be performed directly or delegated to a local coding Agent:
 | Package | `amh pack` | “Package the current task as an AMH file.” |
 | Inspect | `amh inspect mission.amh` | “Inspect this handoff and summarize it.” |
 | Restore | `amh continue mission.amh` | “Continue this task.” |
+| Apply changes | `amh apply mission.amh` | “Apply the source worktree changes.” |
+| Verify | `amh doctor` | “Check whether AMH is ready.” |
 
 After restoring, the receiving Agent first presents a Mission Brief with historical context and asks whether to continue.
 
@@ -51,14 +53,14 @@ amh continue --to claude /path/to/incident.amh
 If all checks pass, AMH prints:
 
 ```text
-Mission restored. Continue with: claude --resume <session-id>
+Mission restored in safe-semantic mode. Continue with: claude --resume <session-id>
 ```
 
 Claude Code resumes that Session and continues from the final Mission Checkpoint.
 
 Before running tools, the receiving Agent summarizes the restored objective, important history, completed work, unresolved items, and next action, then asks whether to continue.
 
-If capabilities are missing, Claude Code should show the concise list, request approval once, resolve what it safely can, and retry.
+If capabilities are missing, Claude Code should decide which ones are relevant to the proposed next action, request approval once, and configure only those. Unrelated historical capabilities do not block restore.
 
 ## Tutorial 2: Claude Code to Codex
 
@@ -93,12 +95,12 @@ amh continue --to codex /path/to/feature-handoff.amh
 AMH creates a writable Codex Session and prints:
 
 ```text
-Mission restored. Continue with: codex resume <session-id>
+Mission restored in safe-semantic mode. Continue with: codex resume <session-id>
 ```
 
 Codex resumes the Session, treats the imported transcript as historical context, and re-runs local tools when fresh evidence is needed.
 
-Before running tools, Codex presents a Mission Brief from the complete imported transcript and asks whether to continue. In Codex Desktop it opens the restored task through native task navigation rather than launching an interactive CLI inside a background terminal.
+Before running tools, Codex presents a Mission Brief from the portable imported transcript and asks whether to continue. In Codex Desktop it opens the restored task through native task navigation rather than launching an interactive CLI inside a background terminal.
 
 ## Tutorial 3: Move a Session to Another Machine
 
@@ -121,7 +123,7 @@ Transfer both of these independently:
 - the project code using your normal source-control or workspace process;
 - `daily-checkpoint.amh` using an approved file channel.
 
-AMH does not package the repository itself.
+AMH does not package the complete repository. If the source worktree is dirty, it may include a portable patch for the delta.
 
 ### Destination machine
 
@@ -148,7 +150,13 @@ Or attach the file to the destination Agent and say:
 
 > Continue this task.
 
-Because the destination Agent matches the source Agent, AMH creates a native writable fork that preserves the original native history.
+AMH creates a safe semantic writable Session by default, even when the destination Agent matches the source. For a locally created capsule whose native records are fully trusted, `--trust-native-session` opts into native preservation.
+
+If the Mission Brief reports portable source workspace changes, confirm first and then let the Agent run:
+
+```bash
+amh apply /path/to/daily-checkpoint.amh
+```
 
 ## Tutorial 4: Teammate Handoff with a Missing Skill
 
@@ -163,13 +171,9 @@ Recommended flow:
 1. The receiving Agent explains that the Skill was observed in the source mission.
 2. The teammate reviews the Skill source and installation method.
 3. The teammate approves installation using the destination Agent's normal process.
-4. The Agent retries `amh continue mission.amh`.
+4. The Agent continues with the restored Session using that local Skill.
 
-If the Skill is not needed for the remaining work, the teammate can explicitly approve continuation:
-
-```bash
-amh continue --allow-missing mission.amh
-```
+If the Skill is not needed for the remaining work, no installation or override flag is required; it remains advisory historical context.
 
 AMH does not copy or execute the source Skill automatically.
 

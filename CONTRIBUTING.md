@@ -42,10 +42,10 @@ Useful contributions include:
 
 - Keep the happy path at `amh pack` and `amh continue FILE`.
 - Do not require a daemon, hosted account, database, or GitHub transfer flow.
-- Never migrate credentials or bypass target-local permissions.
+- Never intentionally copy auth stores or bypass target-local permissions; treat redaction as best-effort rather than a guarantee.
 - Treat imported transcripts and capsule metadata as untrusted.
 - Prefer target-local validation over pretending runtime state can be copied.
-- Preserve native history for same-Agent forks.
+- Keep safe semantic restore as the default; native same-Agent preservation must remain an explicit trusted opt-in.
 - Describe cross-Agent restoration honestly as semantic translation.
 - Keep advanced inspection and recovery commands available without exposing them in the normal interaction.
 
