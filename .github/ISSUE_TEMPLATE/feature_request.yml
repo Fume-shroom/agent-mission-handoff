@@ -1,0 +1,32 @@
+name: Feature request
+description: Propose a focused improvement to mission packaging or restoration.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What Agent-to-Agent handoff problem is not solved today?
+    validations:
+      required: true
+  - type: textarea
+    id: workflow
+    attributes:
+      label: Desired workflow
+      description: Show the sender and receiver interaction, including any additional questions.
+    validations:
+      required: true
+  - type: textarea
+    id: lightweight
+    attributes:
+      label: Lightweight design
+      description: Explain how the proposal preserves one CLI, one optional Skill, one file, and no required service.
+    validations:
+      required: true
+  - type: textarea
+    id: safety
+    attributes:
+      label: Security and compatibility considerations
+      description: Describe credentials, permissions, untrusted input, and Agent-format risks.

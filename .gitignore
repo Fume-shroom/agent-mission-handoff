@@ -1,0 +1,12 @@
+# Build outputs
+/amh
+/amh.exe
+*.test
+
+# Mission capsules may contain sensitive session history.
+*.amh
+
+# Local tooling and OS metadata
+.DS_Store
+.idea/
+.vscode/

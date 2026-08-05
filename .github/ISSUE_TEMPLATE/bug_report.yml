@@ -1,0 +1,63 @@
+name: Bug report
+description: Report incorrect packaging, validation, restore, or Session behavior.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not attach a real `.amh` capsule until you have reviewed it for credentials, proprietary code, internal paths, and personal conversation history.
+  - type: input
+    id: version
+    attributes:
+      label: AMH version
+      description: Output of `amh version` or the commit SHA.
+      placeholder: amh v0.1.0-dev
+    validations:
+      required: true
+  - type: dropdown
+    id: route
+    attributes:
+      label: Handoff route
+      options:
+        - Codex to Codex
+        - Codex to Claude Code
+        - Claude Code to Codex
+        - Claude Code to Claude Code
+        - Inspect or preflight only
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, architecture, Codex version, Claude Code version, and relevant Git state.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Use synthetic or sanitized Session data whenever possible.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I reviewed all logs, fixtures, and capsules for sensitive information.
+          required: true
