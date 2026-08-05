@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
@@ -126,7 +127,11 @@ func TestResolveCurrentCodexThreadAcceptsObservedToolWorkspace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = f.WriteString(`{"type":"response_item","payload":{"type":"function_call","name":"exec_command","arguments":"{\"cmd\":\"go test ./...\",\"workdir\":\"` + cwd + `\"}"}}` + "\n")
+	args, err := json.Marshal(map[string]string{"cmd": "go test ./...", "workdir": cwd})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = f.WriteString(`{"type":"response_item","payload":{"type":"function_call","name":"exec_command","arguments":` + jsonString(string(args)) + `}}` + "\n")
 	if closeErr := f.Close(); err != nil || closeErr != nil {
 		t.Fatalf("append session: %v, close: %v", err, closeErr)
 	}
@@ -151,7 +156,11 @@ func TestResolveCurrentCodexThreadUsesLastObservedWorkspace(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, cwd := range []string{repoA, repoB} {
-		_, err = f.WriteString(`{"type":"response_item","payload":{"type":"function_call","name":"exec_command","arguments":"{\"cmd\":\"pwd\",\"workdir\":\"` + cwd + `\"}"}}` + "\n")
+		args, err := json.Marshal(map[string]string{"cmd": "pwd", "workdir": cwd})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = f.WriteString(`{"type":"response_item","payload":{"type":"function_call","name":"exec_command","arguments":` + jsonString(string(args)) + `}}` + "\n")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -344,16 +353,23 @@ func clearAgentEnv(t *testing.T) {
 func writeCodexSession(t *testing.T, home, id, cwd, name string) string {
 	t.Helper()
 	path := filepath.Join(home, "sessions", "2026", "08", "05", name+"-"+id+".jsonl")
-	body := `{"type":"session_meta","payload":{"id":"` + id + `","session_id":"` + id + `","cwd":"` + cwd + `"}}` + "\n" +
+	body := `{"type":"session_meta","payload":{"id":` + jsonString(id) + `,"session_id":` + jsonString(id) + `,"cwd":` + jsonString(cwd) + `}}` + "\n" +
 		`{"type":"event_msg","payload":{"type":"user_message","message":"debug timeout"}}` + "\n" +
 		`{"type":"event_msg","payload":{"type":"agent_message","message":"continue checking logs"}}` + "\n"
-	body = strings.ReplaceAll(body, `\"`, `"`)
 	writeFile(t, path, []byte(body))
 	return path
 }
 
 func claudeSession(id, cwd string) []byte {
-	return []byte(`{"type":"user","sessionId":"` + id + `","uuid":"11111111-1111-4111-8111-111111111111","cwd":"` + cwd + `","message":{"role":"user","content":"debug"}}` + "\n")
+	return []byte(`{"type":"user","sessionId":` + jsonString(id) + `,"uuid":"11111111-1111-4111-8111-111111111111","cwd":` + jsonString(cwd) + `,"message":{"role":"user","content":"debug"}}` + "\n")
+}
+
+func jsonString(s string) string {
+	b, err := json.Marshal(s)
+	if err != nil {
+		panic(err)
+	}
+	return string(b)
 }
 
 func writeCapsule(t *testing.T, path string, capabilities []capsule.Capability) {
