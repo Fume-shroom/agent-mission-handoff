@@ -8,6 +8,15 @@ Move a writable AI coding mission between machines, teammates, Codex, and Claude
   <img src="docs/assets/amh-demo.gif" alt="AMH sender and receiver workflow demo" width="100%">
 </p>
 
+### Use It With Your Coding Agent
+
+| Sender | Receiver |
+| --- | --- |
+| Tell your Agent: **“Package the current task as an AMH file.”** | Attach `mission.amh` and tell your Agent: **“Continue this task.”** |
+| The Agent runs `amh pack` and creates one portable `mission.amh` file. | The Agent runs `amh continue mission.amh`, summarizes the restored context, and asks whether to continue. |
+
+Or use the CLI directly:
+
 ```bash
 # Sender
 amh pack
@@ -40,16 +49,16 @@ You can also tell a local coding Agent:
 
 > Install AMH from https://github.com/Fume-shroom/agent-mission-handoff and verify the installation.
 
-## CLI Or Agent
+## Agent Or CLI
 
-Every AMH operation supports a direct command or a conversation with a capable local coding Agent.
+Every AMH operation supports a conversation with a capable local coding Agent or a direct command.
 
-| Step | Command line | Tell your coding Agent |
+| Step | Tell your coding Agent | Command line |
 | --- | --- | --- |
-| Install | Run the installer above | “Install AMH from this repository and verify it.” |
-| Package | `amh pack` | “Package the current task as an AMH file.” |
-| Inspect | `amh inspect mission.amh` | “Inspect this handoff and summarize what it contains.” |
-| Restore | `amh continue mission.amh` | Attach the file and say: “Continue this task.” |
+| Install | “Install AMH from this repository and verify it.” | Run the installer above |
+| Package | “Package the current task as an AMH file.” | `amh pack` |
+| Inspect | “Inspect this handoff and summarize what it contains.” | `amh inspect mission.amh` |
+| Restore | Attach the file and say: “Continue this task.” | `amh continue mission.amh` |
 
 The Agent route still uses the local `amh` CLI internally. It does not require a cloud AMH service.
 

@@ -8,6 +8,15 @@
   <img src="docs/assets/amh-demo.gif" alt="AMH 发送端与接收端工作流演示" width="100%">
 </p>
 
+### 通过 Coding Agent 使用
+
+| 发送方 | 接收方 |
+| --- | --- |
+| 告诉 Agent：**“把当前任务交接成一个 AMH 文件。”** | 把 `mission.amh` 交给 Agent，然后说：**“继续这个任务。”** |
+| Agent 会运行 `amh pack`，生成一个便携的 `mission.amh` 文件。 | Agent 会运行 `amh continue mission.amh`，总结恢复出的上下文，然后询问是否继续。 |
+
+也可以直接使用命令行：
+
 ```bash
 # 发送端
 amh pack
@@ -40,16 +49,16 @@ irm https://raw.githubusercontent.com/Fume-shroom/agent-mission-handoff/main/ins
 
 > 从 https://github.com/Fume-shroom/agent-mission-handoff 安装 AMH，并验证安装结果。
 
-## 命令行或 Agent 对话
+## Agent 对话或命令行
 
-AMH 的每个操作都支持直接运行命令，或者交给具备本地操作能力的 Coding Agent 完成。
+AMH 的每个操作都支持交给具备本地操作能力的 Coding Agent 完成，或者直接运行命令。
 
-| 步骤 | 命令行 | 告诉 Coding Agent |
+| 步骤 | 告诉 Coding Agent | 命令行 |
 | --- | --- | --- |
-| 安装 | 运行上面的安装命令 | “从这个仓库安装 AMH，并验证安装结果。” |
-| 打包 | `amh pack` | “把当前任务交接成一个 AMH 文件。” |
-| 查看 | `amh inspect mission.amh` | “查看这个交接文件，并总结它包含的内容。” |
-| 恢复 | `amh continue mission.amh` | 把文件交给 Agent，然后说：“继续这个任务。” |
+| 安装 | “从这个仓库安装 AMH，并验证安装结果。” | 运行上面的安装命令 |
+| 打包 | “把当前任务交接成一个 AMH 文件。” | `amh pack` |
+| 查看 | “查看这个交接文件，并总结它包含的内容。” | `amh inspect mission.amh` |
+| 恢复 | 把文件交给 Agent，然后说：“继续这个任务。” | `amh continue mission.amh` |
 
 Agent 对话模式内部仍然调用本地 `amh` CLI，不依赖 AMH 云服务。
 
