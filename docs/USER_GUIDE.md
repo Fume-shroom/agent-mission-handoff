@@ -87,6 +87,10 @@ Default behavior:
 - writes a native writable Session;
 - prints the native resume command.
 
+When the Mission Handoff Skill is driving the receive flow, the receiving Agent also reads the complete normalized transcript with `amh inspect --json`. It presents a Mission Brief and asks for confirmation before running mission tools or changing files. The brief includes the original objective, important history and evidence, completed work, unresolved items, environment gaps, and the proposed next action.
+
+In a desktop host, the Agent should open the restored task through the host's task navigation capability after confirmation. It must not start an interactive resume command in a background terminal and claim that the desktop UI switched.
+
 Run the printed command to enter the restored Session:
 
 ```bash
@@ -178,11 +182,19 @@ amh continue --dry-run mission.amh
 
 ### `amh inspect`
 
-Display the capsule identity, Mission Checkpoint, workspace, turn count, and capability inventory without restoring it:
+Show a safe human-readable capsule overview:
 
 ```bash
 amh inspect mission.amh
 ```
+
+Return the Mission Checkpoint, workspace metadata, capability inventory, and complete normalized conversation for an authorized receiving Agent:
+
+```bash
+amh inspect --json mission.amh
+```
+
+The JSON form omits the raw native Session. It exposes the portable conversation needed to prepare the receiver's Mission Brief.
 
 ### `amh preflight`
 

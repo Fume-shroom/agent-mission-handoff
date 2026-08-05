@@ -24,8 +24,11 @@ When the user provides a `.amh` file and asks to continue:
 1. Run `amh continue <file>` from the local destination workspace.
 2. Do not separately narrate `inspect`, `preflight`, or `restore` on the happy path; `continue` performs them internally.
 3. If required Skills, MCP servers, CLIs, or workspace mappings are missing, show the concise missing list and ask once before installing, authenticating, remapping, or rerunning with `--allow-missing`.
-4. Resume the restored writable Session using the command printed by `amh continue`. If the host can open that Session directly, do so; otherwise return the single resume command.
-5. Continue the mission from the restored checkpoint and transcript. Re-run tools locally when fresh evidence is needed; do not claim old tool output was replayed.
+4. After restore, run `amh inspect --json <file>` yourself. Read the complete normalized conversation, Mission Checkpoint, workspace metadata, and capability inventory. Do not ask the user to run this command.
+5. Present a concise **Mission Brief** that discloses the original objective, important conversation history and evidence, completed work, unresolved items, environment or capability gaps, and the proposed next action. State how many history turns were restored and that the full history is available in the writable Session.
+6. Ask the user whether to continue. Do not run mission tools or change project files until the user explicitly confirms. Restore and inspection are allowed before this confirmation.
+7. After confirmation, open the restored Session. In a desktop host, use its task/thread navigation capability with the restored Session ID. Do not launch interactive `codex resume` or `claude --resume` inside a background Agent terminal and claim the UI switched. If host navigation is unavailable, return the single native resume command.
+8. Continue from the restored checkpoint and transcript. Re-run tools locally when fresh evidence is needed; do not claim old tool output was replayed.
 
 The normal human-facing interaction should remain:
 

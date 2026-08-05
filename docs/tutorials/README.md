@@ -46,6 +46,8 @@ Mission restored. Continue with: claude --resume <session-id>
 
 Claude Code resumes that Session and continues from the final Mission Checkpoint.
 
+Before running tools, the receiving Agent summarizes the restored objective, important history, completed work, unresolved items, and next action, then asks whether to continue.
+
 If capabilities are missing, Claude Code should show the concise list, request approval once, resolve what it safely can, and retry.
 
 ## Tutorial 2: Claude Code to Codex
@@ -85,6 +87,8 @@ Mission restored. Continue with: codex resume <session-id>
 ```
 
 Codex resumes the Session, treats the imported transcript as historical context, and re-runs local tools when fresh evidence is needed.
+
+Before running tools, Codex presents a Mission Brief from the complete imported transcript and asks whether to continue. In Codex Desktop it opens the restored task through native task navigation rather than launching an interactive CLI inside a background terminal.
 
 ## Tutorial 3: Move a Session to Another Machine
 

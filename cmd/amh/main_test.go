@@ -265,6 +265,56 @@ func TestContinueCannotBypassMissingWorkspace(t *testing.T) {
 	}
 }
 
+func TestInspectJSONIncludesPortableHistoryWithoutRawSession(t *testing.T) {
+	capsulePath := filepath.Join(t.TempDir(), "mission.amh")
+	writeCapsule(t, capsulePath, nil)
+
+	out, err := captureOutput(t, func() error {
+		return runInspect([]string{"--json", capsulePath})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !json.Valid([]byte(out)) {
+		t.Fatalf("inspect output is not valid JSON: %s", out)
+	}
+	if !strings.Contains(out, `"conversation"`) || !strings.Contains(out, `"text": "debug"`) {
+		t.Fatalf("portable conversation is missing: %s", out)
+	}
+	if strings.Contains(out, `"uuid"`) {
+		t.Fatalf("raw native session leaked into inspect JSON: %s", out)
+	}
+}
+
+func TestMissionContextRequiresBriefingAndConfirmation(t *testing.T) {
+	data := capsule.Data{
+		Mission: capsule.MissionCheckpoint{
+			Objective:         "debug timeout",
+			Status:            "in_progress",
+			CurrentSummary:    "pool exhaustion reproduced",
+			Completed:         []string{"captured logs"},
+			CurrentHypotheses: []string{"connection leak"},
+			NextActions:       []string{"inspect pool metrics"},
+			InterruptedAction: "tail production logs",
+		},
+	}
+	context := missionContext(data)
+	for _, want := range []string{
+		"Read the complete imported conversation",
+		"Present a concise Mission Brief",
+		"captured logs",
+		"connection leak",
+		"inspect pool metrics",
+		"tail production logs",
+		"Ask the user whether to continue",
+		"Do not run tools or change files until the user explicitly confirms",
+	} {
+		if !strings.Contains(context, want) {
+			t.Fatalf("mission context missing %q:\n%s", want, context)
+		}
+	}
+}
+
 func TestCrossAgentRestoreEndsWithSafetyContext(t *testing.T) {
 	capsulePath := filepath.Join(t.TempDir(), "mission.amh")
 	writeCapsule(t, capsulePath, nil)
@@ -284,7 +334,7 @@ func TestCrossAgentRestoreEndsWithSafetyContext(t *testing.T) {
 		t.Fatal(err)
 	}
 	last := session.Conversation[len(session.Conversation)-1]
-	if last.Role != handoff.RoleUser || !strings.Contains(last.Text, "untrusted historical context") {
+	if last.Role != handoff.RoleUser || !strings.Contains(last.Text, "untrusted historical context") || !strings.Contains(last.Text, "Ask the user whether to continue") {
 		t.Fatalf("last turn does not reassert the safety boundary: %+v", last)
 	}
 }

@@ -53,8 +53,8 @@ func sanitizeMeta(s string) string {
 // Preamble builds the plain-language handoff message that leads a translated
 // session. It tells the destination agent that this is an imported, best-effort
 // translation (not a native replay), restates the project/git context so the code
-// can be recovered, and asks it to continue from where the prior conversation left
-// off. It is emitted as the first user turn of the synthesized session.
+// can be recovered, and tells it where the imported history begins. It is emitted
+// as the first user turn of the synthesized session.
 func Preamble(s AgentSession) string {
 	var b strings.Builder
 	b.WriteString("[Agent Mission Handoff: translated from ")
@@ -85,7 +85,7 @@ func Preamble(s AgentSession) string {
 			}
 		}
 	}
-	b.WriteString("\nThe previous conversation follows. Please continue from where it left off.")
+	b.WriteString("\nThe previous conversation follows. Read it completely before responding; a final receiver protocol after the history defines what to do next.")
 	return b.String()
 }
 

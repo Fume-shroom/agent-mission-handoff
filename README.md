@@ -128,7 +128,9 @@ With the Skill installed, drag the `.amh` file into the receiving Agent and say:
 
 > Continue this task.
 
-The Agent runs the restore flow, resolves safe local differences, and resumes the writable session.
+The receiving Agent runs the restore flow and reads the complete portable transcript itself. Before doing new work it presents a Mission Brief covering the original objective, important history and evidence, completed work, unresolved items, capability differences, and the proposed next action. It then asks whether to continue.
+
+After confirmation, a desktop Agent opens the restored task through its native task navigation capability. A terminal-only Agent uses the printed resume command. The restored Session remains writable and contains the carried history.
 
 ## When AMH Needs Input
 
