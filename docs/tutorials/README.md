@@ -2,6 +2,16 @@
 
 These tutorials use the public two-command workflow. Replace example paths and file names with values from your environment.
 
+Every operation can be performed directly or delegated to a local coding Agent:
+
+| Operation | Command | Agent prompt |
+| --- | --- | --- |
+| Package | `amh pack` | “Package the current task as an AMH file.” |
+| Inspect | `amh inspect mission.amh` | “Inspect this handoff and summarize it.” |
+| Restore | `amh continue mission.amh` | “Continue this task.” |
+
+After restoring, the receiving Agent first presents a Mission Brief with historical context and asks whether to continue.
+
 ## Tutorial 1: Codex to Claude Code
 
 Use this when an investigation starts in Codex and should continue in Claude Code.
@@ -102,6 +112,10 @@ From the active project:
 amh pack -o daily-checkpoint.amh
 ```
 
+Or tell the local Agent:
+
+> Package the current task as `daily-checkpoint.amh`.
+
 Transfer both of these independently:
 
 - the project code using your normal source-control or workspace process;
@@ -129,6 +143,10 @@ Restore it:
 ```bash
 amh continue /path/to/daily-checkpoint.amh
 ```
+
+Or attach the file to the destination Agent and say:
+
+> Continue this task.
 
 Because the destination Agent matches the source Agent, AMH creates a native writable fork that preserves the original native history.
 

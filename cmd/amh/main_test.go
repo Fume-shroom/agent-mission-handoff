@@ -11,6 +11,7 @@ import (
 
 	"github.com/Fume-shroom/agent-mission-handoff/internal/capsule"
 	"github.com/Fume-shroom/agent-mission-handoff/internal/handoff"
+	"github.com/Fume-shroom/agent-mission-handoff/internal/restore"
 )
 
 func TestDetectAgentPrefersExplicitOverride(t *testing.T) {
@@ -233,6 +234,9 @@ func TestContinueDefaultsToDestinationWorkingDirectory(t *testing.T) {
 	if !strings.Contains(result.Destination, claudeProjectKey(destination)) {
 		t.Fatalf("destination = %q, want target workspace key", result.Destination)
 	}
+	if result.Mission.RawSession != nil {
+		t.Fatal("restore result retained the raw native session")
+	}
 }
 
 func TestContinueStopsForMissingRequiredCapability(t *testing.T) {
@@ -301,17 +305,68 @@ func TestMissionContextRequiresBriefingAndConfirmation(t *testing.T) {
 	context := missionContext(data)
 	for _, want := range []string{
 		"Read the complete imported conversation",
-		"Present a concise Mission Brief",
+		"first response must be a concise Mission Brief",
+		"historical context (latest request, key decisions, evidence, and interruption point)",
 		"captured logs",
 		"connection leak",
 		"inspect pool metrics",
 		"tail production logs",
-		"Ask the user whether to continue",
+		"asking whether to continue with the proposed next action",
 		"Do not run tools or change files until the user explicitly confirms",
 	} {
 		if !strings.Contains(context, want) {
 			t.Fatalf("mission context missing %q:\n%s", want, context)
 		}
+	}
+}
+
+func TestMissionBriefShowsHistoryContextAndGaps(t *testing.T) {
+	result := restoreResult{
+		Target: "codex",
+		Mission: capsule.Data{
+			Manifest: capsule.Manifest{SourceAgent: "codex", SourceSessionID: "source-session"},
+			Mission: capsule.MissionCheckpoint{
+				Objective:         "debug timeout",
+				Status:            "in_progress",
+				CurrentSummary:    "pool exhaustion reproduced",
+				Completed:         []string{"captured logs"},
+				CurrentHypotheses: []string{"connection leak"},
+				NextActions:       []string{"inspect pool metrics"},
+			},
+			Session: handoff.AgentSession{Conversation: []handoff.Turn{
+				{Role: handoff.RoleUser, Text: "please debug the timeout"},
+				{Role: handoff.RoleTool, Tool: "logs", Text: "large internal tool output"},
+				{Role: handoff.RoleAssistant, Text: "the pool appears exhausted"},
+			}},
+		},
+		Checks: []restore.Check{{Kind: "skill", Name: "incident-debug", Status: "missing", Detail: "install locally", Required: true}},
+	}
+
+	out, err := captureOutput(t, func() error {
+		printMissionBrief(result)
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"Mission Brief",
+		"Source: codex session source-session",
+		"History: 3 turns (1 user, 1 assistant, 1 tool)",
+		"User: please debug the timeout",
+		"Assistant: the pool appears exhausted",
+		"captured logs",
+		"connection leak",
+		"inspect pool metrics",
+		"skill: incident-debug (install locally)",
+		"Restored history is available in the writable codex session",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("brief missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "large internal tool output") {
+		t.Fatalf("brief should not dump tool output:\n%s", out)
 	}
 }
 
@@ -334,7 +389,7 @@ func TestCrossAgentRestoreEndsWithSafetyContext(t *testing.T) {
 		t.Fatal(err)
 	}
 	last := session.Conversation[len(session.Conversation)-1]
-	if last.Role != handoff.RoleUser || !strings.Contains(last.Text, "untrusted historical context") || !strings.Contains(last.Text, "Ask the user whether to continue") {
+	if last.Role != handoff.RoleUser || !strings.Contains(last.Text, "untrusted historical context") || !strings.Contains(last.Text, "asking whether to continue with the proposed next action") {
 		t.Fatalf("last turn does not reassert the safety boundary: %+v", last)
 	}
 }
@@ -358,8 +413,16 @@ func TestPackAndContinueShortestPath(t *testing.T) {
 	}
 	withWorkingDirectory(t, destinationCWD)
 	t.Setenv("AMH_AGENT", "claude")
-	if err := runContinue([]string{"mission.amh"}); err != nil {
+	out, err := captureOutput(t, func() error {
+		return runContinue([]string{"mission.amh"})
+	})
+	if err != nil {
 		t.Fatal(err)
+	}
+	for _, want := range []string{"Mission Brief", "History: 2 turns", "Mission restored. Continue with: claude --resume"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("continue output missing %q:\n%s", want, out)
+		}
 	}
 }
 

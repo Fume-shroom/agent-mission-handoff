@@ -44,7 +44,22 @@ amh version
 
 Restart or reload Codex and Claude Code if they do not discover the newly installed Skill automatically.
 
+The same installation can be delegated to a local coding Agent:
+
+> Install AMH from https://github.com/Fume-shroom/agent-mission-handoff and verify the installation.
+
 ## Normal Workflow
+
+Each operation has two equivalent entry points:
+
+| Operation | Command line | Coding Agent conversation |
+| --- | --- | --- |
+| Install | Run the platform installer | “Install AMH from this repository and verify it.” |
+| Package | `amh pack` | “Package the current task as an AMH file.” |
+| Inspect | `amh inspect mission.amh` | “Inspect this handoff and summarize what it contains.” |
+| Restore | `amh continue mission.amh` | Attach the file and say: “Continue this task.” |
+
+The Agent route uses the same local CLI and safety checks. It is not a separate cloud workflow.
 
 ### Sender
 
@@ -69,6 +84,12 @@ Choose another output name when useful:
 amh pack -o payment-timeout.amh
 ```
 
+Agent conversation:
+
+> Package the current task as an AMH file.
+
+The sending Agent runs `amh pack` and returns the generated file path.
+
 ### Receiver
 
 Open the destination copy of the project, then run:
@@ -85,9 +106,27 @@ Default behavior:
 - compares available Git context;
 - checks observed Skills, MCP servers, and CLIs;
 - writes a native writable Session;
+- prints a Mission Brief with the objective, history counts, recent context, open work, and environment gaps;
 - prints the native resume command.
 
 When the Mission Handoff Skill is driving the receive flow, the receiving Agent also reads the complete normalized transcript with `amh inspect --json`. It presents a Mission Brief and asks for confirmation before running mission tools or changing files. The brief includes the original objective, important history and evidence, completed work, unresolved items, environment gaps, and the proposed next action.
+
+The first Agent response after restore uses this structure in the user's language:
+
+```text
+Mission Brief
+- Objective
+- Restored history: turn count and source Agent
+- Historical context: latest request, decisions, evidence, and interruption point
+- Completed work
+- Open questions and risks
+- Local environment or capability gaps
+- Proposed next action
+
+Should I continue with the proposed next action?
+```
+
+Empty sections are omitted. The Agent summarizes the relevant history rather than dumping the full transcript. The full history remains available in the writable restored Session.
 
 In a desktop host, the Agent should open the restored task through the host's task navigation capability after confirmation. It must not start an interactive resume command in a background terminal and claim that the desktop UI switched.
 

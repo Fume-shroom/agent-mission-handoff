@@ -321,6 +321,7 @@ type restoreResult struct {
 	CWD           string
 	ResumeCommand string
 	Checks        []restore.Check
+	Mission       capsule.Data
 	DryRun        bool
 }
 
@@ -382,7 +383,8 @@ func restoreMission(opts restoreOptions) (restoreResult, error) {
 	if opts.Target == "claude" {
 		resume = "claude --resume " + sessionID
 	}
-	result := restoreResult{Target: opts.Target, SessionID: sessionID, Destination: dest, CWD: opts.CWD, ResumeCommand: resume, Checks: checks, DryRun: opts.DryRun}
+	data.RawSession = nil
+	result := restoreResult{Target: opts.Target, SessionID: sessionID, Destination: dest, CWD: opts.CWD, ResumeCommand: resume, Checks: checks, Mission: data, DryRun: opts.DryRun}
 	if opts.DryRun {
 		return result, nil
 	}
@@ -426,11 +428,94 @@ func runContinue(args []string) error {
 		return err
 	}
 	if result.DryRun {
+		printMissionBrief(result)
 		fmt.Printf("Ready to continue in %s: %s\n", result.Target, result.ResumeCommand)
 		return nil
 	}
+	printMissionBrief(result)
 	fmt.Printf("Mission restored. Continue with: %s\n", result.ResumeCommand)
 	return nil
+}
+
+func printMissionBrief(result restoreResult) {
+	data := result.Mission
+	counts := map[handoff.Role]int{}
+	for _, turn := range data.Session.Conversation {
+		counts[turn.Role]++
+	}
+
+	fmt.Println("Mission Brief")
+	fmt.Printf("Objective: %s\n", restore.SafeTerminal(data.Mission.Objective))
+	fmt.Printf("Status: %s\n", restore.SafeTerminal(data.Mission.Status))
+	fmt.Printf("Source: %s session %s\n", restore.SafeTerminal(data.Manifest.SourceAgent), restore.SafeTerminal(data.Manifest.SourceSessionID))
+	fmt.Printf("History: %d turns (%d user, %d assistant, %d tool)\n",
+		len(data.Session.Conversation), counts[handoff.RoleUser], counts[handoff.RoleAssistant], counts[handoff.RoleTool])
+	if data.Mission.CurrentSummary != "" {
+		fmt.Printf("Current context: %s\n", restore.SafeTerminal(clip(data.Mission.CurrentSummary, 500)))
+	}
+	if context := recentConversationContext(data.Session.Conversation, 4); len(context) > 0 {
+		fmt.Println("Recent history:")
+		for _, item := range context {
+			fmt.Printf("- %s\n", restore.SafeTerminal(item))
+		}
+	}
+	printBriefList("Completed", data.Mission.Completed)
+	printBriefList("Open questions and risks", data.Mission.CurrentHypotheses)
+	printBriefList("Suggested next actions", data.Mission.NextActions)
+	if data.Mission.InterruptedAction != "" {
+		fmt.Printf("Interrupted action: %s\n", restore.SafeTerminal(clip(data.Mission.InterruptedAction, 500)))
+	}
+	if gaps := requiredGaps(result.Checks); len(gaps) > 0 {
+		fmt.Println("Environment gaps:")
+		for _, gap := range gaps {
+			fmt.Printf("- %s\n", restore.SafeTerminal(gap))
+		}
+	}
+	fmt.Printf("Restored history is available in the writable %s session.\n", restore.SafeTerminal(result.Target))
+}
+
+func recentConversationContext(turns []handoff.Turn, limit int) []string {
+	var reversed []string
+	for i := len(turns) - 1; i >= 0 && len(reversed) < limit; i-- {
+		turn := turns[i]
+		if turn.Role == handoff.RoleTool || strings.TrimSpace(turn.Text) == "" {
+			continue
+		}
+		label := "Assistant"
+		if turn.Role == handoff.RoleUser {
+			label = "User"
+		}
+		reversed = append(reversed, label+": "+clip(turn.Text, 300))
+	}
+	out := make([]string, len(reversed))
+	for i := range reversed {
+		out[len(reversed)-1-i] = reversed[i]
+	}
+	return out
+}
+
+func printBriefList(heading string, items []string) {
+	if len(items) == 0 {
+		return
+	}
+	fmt.Println(heading + ":")
+	for _, item := range items {
+		fmt.Printf("- %s\n", restore.SafeTerminal(clip(item, 500)))
+	}
+}
+
+func requiredGaps(checks []restore.Check) []string {
+	var gaps []string
+	for _, check := range checks {
+		if check.Required && check.Status == "missing" {
+			gap := check.Kind + ": " + check.Name
+			if check.Detail != "" {
+				gap += " (" + check.Detail + ")"
+			}
+			gaps = append(gaps, gap)
+		}
+	}
+	return gaps
 }
 
 func hardWorkspaceMissing(checks []restore.Check) []restore.Check {
@@ -513,9 +598,9 @@ func missionContext(data capsule.Data) string {
 	}
 	b.WriteString("\nReceiver protocol:\n")
 	b.WriteString("1. Read the complete imported conversation before taking any new action.\n")
-	b.WriteString("2. Present a concise Mission Brief covering the original objective, important history and evidence, completed work, unresolved issues, environment or capability gaps, and proposed next step.\n")
-	b.WriteString("3. State that the restored history is available in this writable session.\n")
-	b.WriteString("4. Ask the user whether to continue. Do not run tools or change files until the user explicitly confirms.\n")
+	b.WriteString("2. Your first response must be a concise Mission Brief in the user's language. Include the objective, restored turn count and source agent, historical context (latest request, key decisions, evidence, and interruption point), completed work, open questions and risks, local environment gaps, and the proposed next action. Omit empty sections and do not dump the full transcript unless asked.\n")
+	b.WriteString("3. State that the complete restored history remains available in this writable session.\n")
+	b.WriteString("4. End by asking whether to continue with the proposed next action. Do not run tools or change files until the user explicitly confirms.\n")
 	b.WriteString("When the user confirms, validate fresh local evidence and use normal approval flows for permissions, credentials, installs, network access, or privileged actions.")
 	return b.String()
 }
