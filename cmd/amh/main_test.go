@@ -294,7 +294,7 @@ func TestPackAndContinueShortestPath(t *testing.T) {
 	sourceCWD := t.TempDir()
 	destinationCWD := t.TempDir()
 	writeCodexSession(t, filepath.Join(home, ".codex"), "current-thread", sourceCWD, "current")
-	t.Setenv("HOME", home)
+	setTestHome(t, home)
 	t.Setenv("AMH_AGENT", "codex")
 	t.Setenv("CODEX_THREAD_ID", "current-thread")
 	withWorkingDirectory(t, sourceCWD)
@@ -370,6 +370,12 @@ func jsonString(s string) string {
 		panic(err)
 	}
 	return string(b)
+}
+
+func setTestHome(t *testing.T, home string) {
+	t.Helper()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 }
 
 func writeCapsule(t *testing.T, path string, capabilities []capsule.Capability) {
