@@ -67,6 +67,10 @@ tar -xzf "$tmp_dir/$asset" -C "$tmp_dir/package"
 [ -x "$tmp_dir/package/amh" ] || fail "release archive does not contain amh"
 
 mkdir -p "$install_dir"
+existing_install="false"
+if [ -e "$install_dir/amh" ]; then
+  existing_install="true"
+fi
 install_tmp="$(mktemp "$install_dir/.amh.XXXXXX")"
 cp "$tmp_dir/package/amh" "$install_tmp"
 chmod 0755 "$install_tmp"
@@ -107,7 +111,11 @@ esac
 
 printf '\nInstalled amh to %s\n' "$install_dir/amh"
 printf 'Installed the Mission Handoff Skill for Codex and Claude Code.\n'
-"$install_dir/amh" version
+if [ "$existing_install" = "true" ]; then
+  printf 'Updated the existing amh installation.\n'
+else
+  "$install_dir/amh" version
+fi
 
 if [ "$path_updated" = "true" ]; then
   printf 'PATH was updated. Open a new terminal before running amh directly.\n'
