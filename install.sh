@@ -36,7 +36,14 @@ else
 fi
 
 tmp_dir="$(mktemp -d 2>/dev/null || mktemp -d -t amh-install)"
-trap 'rm -rf "$tmp_dir"' EXIT INT TERM
+install_tmp=""
+cleanup() {
+  if [ -n "$install_tmp" ]; then
+    rm -f "$install_tmp"
+  fi
+  rm -rf "$tmp_dir"
+}
+trap cleanup EXIT INT TERM
 
 printf 'Downloading %s...\n' "$asset"
 curl -fsSL "$release_base/$asset" -o "$tmp_dir/$asset"
@@ -60,8 +67,11 @@ tar -xzf "$tmp_dir/$asset" -C "$tmp_dir/package"
 [ -x "$tmp_dir/package/amh" ] || fail "release archive does not contain amh"
 
 mkdir -p "$install_dir"
-cp "$tmp_dir/package/amh" "$install_dir/amh"
-chmod 0755 "$install_dir/amh"
+install_tmp="$(mktemp "$install_dir/.amh.XXXXXX")"
+cp "$tmp_dir/package/amh" "$install_tmp"
+chmod 0755 "$install_tmp"
+mv -f "$install_tmp" "$install_dir/amh"
+install_tmp=""
 
 skill_source="$tmp_dir/package/skills/mission-handoff/SKILL.md"
 if [ -f "$skill_source" ]; then
