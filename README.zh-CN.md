@@ -8,8 +8,8 @@ Codex ↔ Claude Code · 本地优先 · 不需要云服务、账号、数据库
 
 ## 两句话完成交接
 
-- **发送方：**告诉当前 Agent **“把当前任务交接成一个 AMH 文件。”** → Agent 生成 `mission.amh`（`amh pack`）。
-- **接收方：**把 `mission.amh` 交给目标 Agent 并说 **“继续这个任务。”** → Agent 恢复可写 Session，先给出 Mission Brief，再询问是否继续（`amh continue mission.amh`）。
+- **发送方：** 告诉当前 Agent **“把当前任务交接成一个 AMH 文件。”** → Agent 生成 `mission.amh`（`amh pack`）。
+- **接收方：** 把 `mission.amh` 交给目标 Agent 并说 **“继续这个任务。”** → Agent 恢复可写 Session，先给出 Mission Brief，再询问是否继续（`amh continue mission.amh`）。
 
 发送方一句话，接收方一句话，中间只传一个文件。
 
