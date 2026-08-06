@@ -2,6 +2,11 @@
 
 [English](README.md) | **简体中文**
 
+[![CI](https://github.com/Fume-shroom/agent-mission-handoff/actions/workflows/ci.yml/badge.svg)](https://github.com/Fume-shroom/agent-mission-handoff/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Fume-shroom/agent-mission-handoff?sort=semver)](https://github.com/Fume-shroom/agent-mission-handoff/releases/latest)
+[![License: MIT](https://img.shields.io/github/license/Fume-shroom/agent-mission-handoff)](https://github.com/Fume-shroom/agent-mission-handoff/blob/main/LICENSE)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/Fume-shroom/agent-mission-handoff)](https://go.dev/dl/)
+
 **把 Codex 或 Claude Code 中正在进行的任务打包成一个 `.amh` 文件，在另一台机器或另一个 Agent 中恢复为可继续工作的 Session。**
 
 Codex ↔ Claude Code · 本地优先 · 不需要云服务、账号、数据库或 GitHub 仓库

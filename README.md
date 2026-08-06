@@ -2,6 +2,11 @@
 
 **English** | [简体中文](README.zh-CN.md)
 
+[![CI](https://github.com/Fume-shroom/agent-mission-handoff/actions/workflows/ci.yml/badge.svg)](https://github.com/Fume-shroom/agent-mission-handoff/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Fume-shroom/agent-mission-handoff?sort=semver)](https://github.com/Fume-shroom/agent-mission-handoff/releases/latest)
+[![License: MIT](https://img.shields.io/github/license/Fume-shroom/agent-mission-handoff)](https://github.com/Fume-shroom/agent-mission-handoff/blob/main/LICENSE)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/Fume-shroom/agent-mission-handoff)](https://go.dev/dl/)
+
 **Hand off a Codex or Claude Code task as one `.amh` file, then continue it locally in a writable Session.**
 
 Codex ↔ Claude Code · local-first · no hosted service, account, database, or GitHub repository required

@@ -1,0 +1,5 @@
+title: Agent Mission Handoff
+description: >-
+  Hand off a Codex or Claude Code task as one .amh file, then continue it
+  locally in a writable session.
+theme: jekyll-theme-cayman
