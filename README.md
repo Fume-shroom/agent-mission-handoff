@@ -8,31 +8,14 @@ Codex ↔ Claude Code · local-first · no hosted service, account, database, or
 
 ## Handoff In Two Prompts
 
-### 1. Sender
+- **Sender:** Tell your Agent **“Package the current task as an AMH file.”** → it creates `mission.amh` (`amh pack`).
+- **Receiver:** Attach `mission.amh` and say **“Continue this task.”** → it restores a writable Session, presents a Mission Brief, and asks before continuing (`amh continue mission.amh`).
 
-Tell the coding Agent that is working on the task:
-
-> **Package the current task as an AMH file.**
-
-The Agent creates `mission.amh` with the useful Session history, Mission Checkpoint, observed capabilities, and any safely portable workspace changes.
-
-CLI equivalent: `amh pack`
-
-### 2. Receiver
-
-Attach `mission.amh` in the destination project and tell the receiving Agent:
-
-> **Continue this task.**
-
-The Agent restores a writable local Session, opens it when the host supports task navigation, presents a concise Mission Brief, and asks before continuing the work.
-
-CLI equivalent: `amh continue mission.amh`
+One prompt on each side. One file in between.
 
 <p align="center">
   <img src="docs/assets/amh-demo.gif" alt="Package one coding Agent task as mission.amh, restore it in another Agent, review the Mission Brief, and continue" width="820">
 </p>
-
-That is the normal workflow: one prompt on each side and one file in between.
 
 ## Install Once
 

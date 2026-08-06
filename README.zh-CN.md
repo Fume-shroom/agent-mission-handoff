@@ -8,31 +8,14 @@ Codex ↔ Claude Code · 本地优先 · 不需要云服务、账号、数据库
 
 ## 两句话完成交接
 
-### 1. 发送方
+- **发送方：**告诉当前 Agent **“把当前任务交接成一个 AMH 文件。”** → Agent 生成 `mission.amh`（`amh pack`）。
+- **接收方：**把 `mission.amh` 交给目标 Agent 并说 **“继续这个任务。”** → Agent 恢复可写 Session，先给出 Mission Brief，再询问是否继续（`amh continue mission.amh`）。
 
-告诉当前正在工作的 Coding Agent：
-
-> **把当前任务交接成一个 AMH 文件。**
-
-Agent 会生成 `mission.amh`，其中包含有价值的会话历史、Mission Checkpoint、实际使用过的能力，以及可以安全迁移的工作区改动。
-
-对应命令：`amh pack`
-
-### 2. 接收方
-
-在目标项目中把 `mission.amh` 交给接收方 Agent，然后说：
-
-> **继续这个任务。**
-
-Agent 会恢复一个本地可写 Session；如果宿主支持任务跳转，会直接打开它。恢复后的 Agent 会先给出简洁的 Mission Brief，再询问是否继续。
-
-对应命令：`amh continue mission.amh`
+发送方一句话，接收方一句话，中间只传一个文件。
 
 <p align="center">
   <img src="docs/assets/amh-demo.gif" alt="将 Coding Agent 任务打包为 mission.amh，在另一个 Agent 中恢复、查看 Mission Brief 并继续工作" width="820">
 </p>
-
-正常使用只有这些步骤：发送方一句话、接收方一句话，中间传递一个文件。
 
 ## 只需安装一次
 
