@@ -129,7 +129,7 @@ func render(_ scene: Scene) -> CGImage {
     }
 
     drawText("AGENT MISSION HANDOFF", at: NSPoint(x: 48, y: 623), font: titleFont, color: text)
-    drawText("ONE FILE · WRITABLE RESTORE · CODEX ↔ CLAUDE CODE", at: NSPoint(x: 49, y: 594), font: subtitleFont, color: muted)
+    drawText("ONE FILE · TWO PROMPTS · WRITABLE SESSION", at: NSPoint(x: 49, y: 594), font: subtitleFont, color: muted)
 
     drawPanel(NSRect(x: 48, y: 62, width: 520, height: 492), label: "SENDER · CODEX", active: !scene.receiverActive, lines: scene.senderLines)
     drawPanel(NSRect(x: 632, y: 62, width: 520, height: 492), label: "RECEIVER · CLAUDE CODE", active: scene.receiverActive, lines: scene.receiverLines)

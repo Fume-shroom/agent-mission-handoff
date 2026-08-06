@@ -2,34 +2,45 @@
 
 [English](README.md) | **简体中文**
 
-通过一个便携的 `.amh` 文件，在不同机器、团队成员、Codex 与 Claude Code 之间迁移并继续执行 AI Coding Mission。
+**把 Codex 或 Claude Code 中正在进行的任务打包成一个 `.amh` 文件，在另一台机器或另一个 Agent 中恢复为可继续工作的 Session。**
+
+Codex ↔ Claude Code · 本地优先 · 不需要云服务、账号、数据库或 GitHub 仓库
+
+## 两句话完成交接
+
+### 1. 发送方
+
+告诉当前正在工作的 Coding Agent：
+
+> **把当前任务交接成一个 AMH 文件。**
+
+Agent 会生成 `mission.amh`，其中包含有价值的会话历史、Mission Checkpoint、实际使用过的能力，以及可以安全迁移的工作区改动。
+
+对应命令：`amh pack`
+
+### 2. 接收方
+
+在目标项目中把 `mission.amh` 交给接收方 Agent，然后说：
+
+> **继续这个任务。**
+
+Agent 会恢复一个本地可写 Session；如果宿主支持任务跳转，会直接打开它。恢复后的 Agent 会先给出简洁的 Mission Brief，再询问是否继续。
+
+对应命令：`amh continue mission.amh`
 
 <p align="center">
-  <img src="docs/assets/amh-demo.gif" alt="AMH 发送端与接收端工作流演示" width="100%">
+  <img src="docs/assets/amh-demo.gif" alt="将 Coding Agent 任务打包为 mission.amh，在另一个 Agent 中恢复、查看 Mission Brief 并继续工作" width="820">
 </p>
 
-### 通过 Coding Agent 使用
+正常使用只有这些步骤：发送方一句话、接收方一句话，中间传递一个文件。
 
-| 发送方 | 接收方 |
-| --- | --- |
-| 告诉 Agent：**“把当前任务交接成一个 AMH 文件。”** | 把 `mission.amh` 交给 Agent，然后说：**“继续这个任务。”** |
-| Agent 会运行 `amh pack`，生成一个便携的 `mission.amh` 文件。 | Agent 会运行 `amh continue mission.amh`，总结恢复出的上下文，然后询问是否继续。 |
+## 只需安装一次
 
-也可以直接使用命令行：
+优先直接告诉 Coding Agent：
 
-```bash
-# 发送端
-amh pack
+> 从 https://github.com/Fume-shroom/agent-mission-handoff 安装 AMH，并验证安装结果。
 
-# 接收端
-amh continue mission.amh
-```
-
-AMH 是本地优先工具：会话交接本身不需要守护进程、云服务、账号、数据库或 GitHub 仓库。
-
-> 技术预览：Codex 与 Claude Code 的会话格式属于私有实现细节，产品升级后可能需要更新 Adapter。
-
-## 安装
+也可以直接运行安装命令。
 
 macOS 或 Linux：
 
@@ -43,73 +54,42 @@ Windows PowerShell：
 irm https://raw.githubusercontent.com/Fume-shroom/agent-mission-handoff/main/install.ps1 | iex
 ```
 
-用户不需要安装 Go，也不需要下载源码。安装器会验证 Release 校验和，并同时安装 CLI、Codex Skill 和 Claude Code Skill。
+安装器会验证 Release 校验和，并安装一个 CLI，以及 Codex 和 Claude Code 共用的 Mission Handoff Skill。用户不需要安装 Go，也不需要下载源码。
 
-安装后可直接验证：
+需要检查时运行 `amh doctor`。
 
-```bash
-amh doctor
-```
+## 说出“继续这个任务”之后
 
-你也可以直接告诉本地 Coding Agent：
+- AMH 会检查文件完整性、目标工作区、Git 上下文，以及本次继续任务可能需要的 Skills、MCP 和 CLI。
+- 如果缺少必要能力或路径映射，Agent 会说明真正相关的差异，并在安装、登录、重新映射或忽略差异前只询问一次。
+- AMH 默认使用安全语义恢复创建可写 Session。原始历史会作为上下文保留，但不会被当成目标 Agent 的可信指令。
+- 恢复后的 Agent 会先输出 Mission Brief：目标、历史、已完成工作、未解决问题、环境差异和建议的下一步。
+- 用户确认前，Agent 不会运行任务工具，也不会应用源端代码补丁。
 
-> 从 https://github.com/Fume-shroom/agent-mission-handoff 安装 AMH，并验证安装结果。
+## 一个文件包含什么
 
-## Agent 对话或命令行
+一个 `.amh` 文件可以包含：
 
-AMH 的每个操作都支持交给具备本地操作能力的 Coding Agent 完成，或者直接运行命令。
-
-| 步骤 | 告诉 Coding Agent | 命令行 |
-| --- | --- | --- |
-| 安装 | “从这个仓库安装 AMH，并验证安装结果。” | 运行上面的安装命令 |
-| 打包 | “把当前任务交接成一个 AMH 文件。” | `amh pack` |
-| 查看 | “查看这个交接文件，并总结它包含的内容。” | `amh inspect mission.amh` |
-| 恢复 | 把文件交给 Agent，然后说：“继续这个任务。” | `amh continue mission.amh` |
-| 应用源端改动 | “应用这个交接文件里的源工作区改动。” | `amh apply mission.amh` |
-| 验证 | “检查 AMH 是否已就绪。” | `amh doctor` |
-| 更新 | “更新 AMH 并验证。” | `amh update` |
-| 卸载 | “卸载 AMH。” | `amh uninstall` |
-
-Agent 对话模式内部仍然调用本地 `amh` CLI，不依赖 AMH 云服务。
-
-## 接收端体验
-
-`amh continue` 会恢复一个可继续操作的 Session，并自动输出简洁的 Mission Brief，包括：
-
-- 原始目标与当前状态；
-- 已恢复的历史 turn 数和最近的对话上下文；
-- 已完成工作、未解决问题和建议的下一步；
-- 缺失的 Skills、MCP、CLI 或工作区条件；
-- 是否包含可迁移的源工作区改动和 staged 状态；
-- 原生 Session 恢复命令。
-
-当接收方是 Coding Agent 时，它会打开恢复后的 Session。恢复后的 Agent 会读取可迁移 transcript，在第一次回复中输出质量更高的 Mission Brief，然后主动询问是否继续。在用户确认之前，它不能运行任务工具、应用源端改动或修改项目文件。
-
-可迁移历史仍保留在恢复后的可写 Session 中。默认只输出摘要和关键上下文，不会把整段 transcript 全量倾倒到聊天界面。
-
-## 文件包含什么
-
-一个 `.amh` 文件包含：
-
-- Mission Checkpoint：目标、进度、已完成工作、风险和下一步；
+- 任务目标、当前进度、已完成工作、风险和下一步；
 - 可迁移对话历史与原始 Agent Session；
-- 工作区与 Git 身份信息，以及可选的 tracked/untracked 未提交改动补丁和 staged 状态；
+- 工作区和 Git 身份信息；
+- 可选的 tracked、untracked 和 staged 改动补丁；
 - 实际使用过的 Skills、MCP 和 CLI，以及可获得的来源、版本和摘要信息；
 - 校验和与压缩包安全元数据。
 
-AMH 不会主动复制 Agent 的认证存储、登录状态、权限授权、运行中的进程、模型私有状态或完整项目仓库。但会话文本、命令历史、Checkpoint、补丁和 Git 元数据仍可能包含敏感值。AMH 默认执行尽力而为的高置信度脱敏，但这不代表文件一定不含秘密；发送前仍应检查，并通过获批的安全渠道传输。
+AMH 不会主动复制 Agent 凭据、登录状态、权限授权、运行中的进程、模型私有状态或完整代码仓库。会话和补丁仍可能包含敏感值。AMH 默认执行尽力而为的高置信度脱敏，但发送前仍应检查文件，并使用获批的安全渠道传输。
 
-源工作区改动不会自动应用。接收方 Agent 会先报告这些改动，在用户确认后才运行 `amh apply`。
-如果 AMH 对新增补丁内容进行了脱敏，Mission Brief 会报告替换数量，接收方应在测试或提交前检查 `[REDACTED]` 占位符。
-如果文件内容可以迁移、但精确的 staged 状态无法保留，Mission Brief 会明确说明，不会把它描述为完整工作区恢复。
+## 常用命令
 
-## 维护
-
-```bash
-amh doctor      # 检查 CLI、Agent、Skill 和 Session 目录
-amh update      # 原地安装最新的已校验 Release
-amh uninstall   # 删除 CLI 和两个 Mission Handoff Skill
-```
+| 需要完成的操作 | 命令 |
+| --- | --- |
+| 打包当前任务 | `amh pack` |
+| 恢复并继续 | `amh continue mission.amh` |
+| 只查看、不恢复 | `amh inspect mission.amh` |
+| 应用已确认的源端改动 | `amh apply mission.amh` |
+| 检查本地环境 | `amh doctor` |
+| 更新 AMH | `amh update` |
+| 卸载 AMH | `amh uninstall` |
 
 ## 支持的迁移方向
 
@@ -117,10 +97,12 @@ amh uninstall   # 删除 CLI 和两个 Mission Handoff Skill
 | --- | --- | --- |
 | Codex | Codex | 默认安全语义恢复为可写 Session |
 | Claude Code | Claude Code | 默认安全语义恢复为可写 Session |
-| Codex | Claude Code | 语义会话转换 |
-| Claude Code | Codex | 语义会话转换 |
+| Codex | Claude Code | 语义 Session 转换 |
+| Claude Code | Codex | 语义 Session 转换 |
 
-语义恢复会保留有价值的对话和任务上下文，同时不会把来源 Session 的 system/developer 记录当作目标 Agent 的可信指令。对于完全可信的 Capsule，可通过 `--trust-native-session` 显式启用同 Agent 原生 Fork。AMH 不会声称逐字节复刻私有运行状态或工具调用内部信息。
+对于完全可信的 Capsule，可以通过 `--trust-native-session` 显式启用同 Agent 原生 Fork。AMH 不会声称逐字节复刻私有运行状态或工具调用内部信息。
+
+> 技术预览：Codex 与 Claude Code 的 Session 格式属于私有实现细节，产品升级后可能需要更新 Adapter。
 
 ## 文档
 
